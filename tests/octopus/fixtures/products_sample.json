@@ -1,0 +1,22 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "code": "VAR-22-11-01",
+      "display_name": "Flexible Octopus",
+      "full_name": "Flexible Octopus November 2022 v1",
+      "description": "Default variable tariff",
+      "is_variable": true,
+      "is_green": true,
+      "is_tracker": false,
+      "is_prepay": false,
+      "is_business": false,
+      "brand": "OCTOPUS_ENERGY",
+      "available_from": "2022-11-01T00:00:00Z",
+      "available_to": null,
+      "links": []
+    }
+  ]
+}
