@@ -36,9 +36,19 @@ def test_not_found_error_carries_resource_hint() -> None:
     assert err.resource == "meter:1234"
 
 
-def test_data_error_carries_truncated_excerpt() -> None:
+def test_data_error_truncates_oversized_excerpt_to_1024() -> None:
     err = DataError("bad shape", raw_excerpt="x" * 5000)
-    assert len(err.raw_excerpt) <= 1024
+    assert len(err.raw_excerpt) == 1024
+
+
+def test_data_error_keeps_excerpt_at_boundary() -> None:
+    err = DataError("bad shape", raw_excerpt="x" * 1024)
+    assert len(err.raw_excerpt) == 1024
+
+
+def test_data_error_handles_none_excerpt() -> None:
+    err = DataError("bad shape", raw_excerpt=None)
+    assert err.raw_excerpt == ""
 
 
 def test_octopus_error_can_be_raised_and_caught() -> None:
