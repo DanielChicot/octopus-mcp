@@ -1,0 +1,43 @@
+# Local agent / tooling state
+.remember/
+.claude/
+*.log
+
+# macOS
+.DS_Store
+
+# Python (anticipating implementation)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.token
+config.toml
+
+# Local cache (will live in XDG cache dir, but if anyone runs from repo)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+cache/
