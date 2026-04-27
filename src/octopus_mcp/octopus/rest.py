@@ -9,7 +9,6 @@ from typing import Any
 import httpx
 from tenacity import (
     AsyncRetrying,
-    RetryError,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
@@ -82,11 +81,11 @@ class OctopusRestClient:
             ):
                 with attempt:
                     return await _attempt()
-        except _RetryableHTTPError as e:
+        except (_RetryableHTTPError, httpx.TransportError) as e:
             raise ServiceError(str(e)) from e
-        except RetryError as e:  # pragma: no cover
-            raise ServiceError("retries exhausted") from e
-        raise ServiceError("unreachable")  # pragma: no cover
+        raise ServiceError(
+            "unreachable"
+        )  # pragma: no cover  # tenacity reraise=True keeps the loop above; this is defensive
 
     @staticmethod
     def _handle(resp: httpx.Response) -> dict[str, Any]:

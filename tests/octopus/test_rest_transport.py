@@ -2,6 +2,7 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
+import octopus_mcp.octopus.rest as rest_module
 import pytest
 from octopus_mcp.octopus.auth import OctopusCredentials
 from octopus_mcp.octopus.errors import (
@@ -12,6 +13,7 @@ from octopus_mcp.octopus.errors import (
     ServiceError,
 )
 from octopus_mcp.octopus.rest import OctopusRestClient
+from tenacity import wait_fixed
 
 
 def _creds() -> OctopusCredentials:
@@ -24,7 +26,6 @@ def _make_client(handler: Callable[[httpx.Request], httpx.Response]) -> OctopusR
     return OctopusRestClient(_creds(), http_client=http)
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
 async def test_get_uses_basic_auth() -> None:
     captured: dict[str, Any] = {}
 
@@ -37,7 +38,6 @@ async def test_get_uses_basic_auth() -> None:
     assert captured["auth"].startswith("Basic ")
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
 async def test_401_raises_authentication_error() -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         return httpx.Response(401, json={"detail": "Invalid token"})
@@ -47,21 +47,18 @@ async def test_401_raises_authentication_error() -> None:
             await client._get_json("/v1/products/")
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
 async def test_403_raises_authorization_error() -> None:
     async with _make_client(lambda _: httpx.Response(403)) as client:
         with pytest.raises(AuthorizationError):
             await client._get_json("/v1/x")
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
 async def test_404_raises_not_found_error() -> None:
     async with _make_client(lambda _: httpx.Response(404)) as client:
         with pytest.raises(NotFoundError):
             await client._get_json("/v1/x")
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
 async def test_429_raises_rate_limit_with_retry_after() -> None:
     async with _make_client(lambda _: httpx.Response(429, headers={"Retry-After": "12"})) as client:
         with pytest.raises(RateLimitError) as exc:
@@ -69,16 +66,12 @@ async def test_429_raises_rate_limit_with_retry_after() -> None:
         assert exc.value.retry_after_seconds == 12
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
 async def test_500_retries_then_raises_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: dict[str, int] = {"n": 0}
 
     def handler(_: httpx.Request) -> httpx.Response:
         calls["n"] += 1
         return httpx.Response(500)
-
-    import octopus_mcp.octopus.rest as rest_module
-    from tenacity import wait_fixed
 
     monkeypatch.setattr(rest_module, "_RETRY_WAIT", wait_fixed(0))
 
@@ -88,7 +81,6 @@ async def test_500_retries_then_raises_service_error(monkeypatch: pytest.MonkeyP
     assert calls["n"] == 3  # initial + 2 retries
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
 async def test_500_then_200_recovers(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: dict[str, int] = {"n": 0}
 
@@ -98,11 +90,24 @@ async def test_500_then_200_recovers(monkeypatch: pytest.MonkeyPatch) -> None:
             return httpx.Response(500)
         return httpx.Response(200, json={"ok": True})
 
-    import octopus_mcp.octopus.rest as rest_module
-    from tenacity import wait_fixed
-
     monkeypatch.setattr(rest_module, "_RETRY_WAIT", wait_fixed(0))
 
     async with _make_client(handler) as client:
         out = await client._get_json("/v1/x")
     assert out == {"ok": True}
+
+
+async def test_transport_error_retries_then_raises_service_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(rest_module, "_RETRY_WAIT", wait_fixed(0))
+    calls: dict[str, int] = {"n": 0}
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        raise httpx.ConnectError("connection refused")
+
+    async with _make_client(handler) as client:
+        with pytest.raises(ServiceError):
+            await client._get_json("/v1/x")
+    assert calls["n"] == 3
