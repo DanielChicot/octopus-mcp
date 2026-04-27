@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import httpx
 import pytest
+
 from octopus_mcp.octopus.auth import OctopusCredentials
 from octopus_mcp.octopus.errors import AuthenticationError
 from octopus_mcp.octopus.kraken import KrakenClient

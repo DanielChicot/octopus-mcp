@@ -24,7 +24,7 @@ class PeriodCost:
 
 
 def _round_pence(value_pence_float: float) -> int:
-    return int(round(value_pence_float))
+    return round(value_pence_float)
 
 
 def compute_period_cost(
