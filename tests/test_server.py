@@ -20,6 +20,8 @@ def test_build_app_registers_expected_tools() -> None:
         "list_products",
         "get_product",
         "get_consumption_raw",
+        "saving_session_history",
+        "kraken_query",
     }
     assert expected.issubset(names)
 

@@ -77,6 +77,12 @@ def _build_app(*, test_mode: bool = False) -> tuple[FastMCP, ToolContext | None]
                 rest=rest, repo=consumption_repo, state=sync_state
             ),
         )
+
+        from octopus_mcp.cache.kraken_repo import KrakenRepo
+        from octopus_mcp.octopus.kraken import KrakenClient
+
+        ctx.kraken = KrakenClient(creds)
+        ctx.kraken_repo = KrakenRepo(conn)
         build_helpers(ctx)
 
     async def _wrap_call(coro: Any) -> Any:
@@ -198,6 +204,32 @@ def _build_app(*, test_mode: bool = False) -> tuple[FastMCP, ToolContext | None]
         get_consumption_raw,
         name="get_consumption_raw",
         description="Half-hourly consumption rows for a meter",
+    )
+
+    from octopus_mcp.tools.kraken_passthrough import kraken_query as kraken_query_tool
+    from octopus_mcp.tools.saving_sessions import (
+        saving_session_history as saving_session_history_tool,
+    )
+
+    async def saving_session_history_handler() -> dict[str, Any]:
+        assert ctx is not None
+        return cast(dict[str, Any], await _wrap_call(saving_session_history_tool(ctx=ctx)))
+
+    async def kraken_query_handler(
+        query: str, variables: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        assert ctx is not None
+        return cast(dict[str, Any], await _wrap_call(kraken_query_tool(query, variables, ctx=ctx)))
+
+    app.add_tool(
+        saving_session_history_handler,
+        name="saving_session_history",
+        description="Octoplus saving sessions joined and points/kWh earned",
+    )
+    app.add_tool(
+        kraken_query_handler,
+        name="kraken_query",
+        description="Escape hatch: run an arbitrary Kraken GraphQL query",
     )
 
     return app, ctx

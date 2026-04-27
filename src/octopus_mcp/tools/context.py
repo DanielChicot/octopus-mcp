@@ -44,6 +44,8 @@ class ToolContext:
     products_repo: ProductsRepo
     sync_state: SyncStateRepo
     consumption_syncer: ConsumptionSyncer
+    kraken: Any = None
+    kraken_repo: Any = None
 
 
 @dataclass
@@ -51,6 +53,7 @@ class _Helpers:
     ensure_rates: Callable[..., Coroutine[Any, Any, None]]
     resolve_target_tariff_code: Callable[..., Coroutine[Any, Any, str]]
     ensure_account_bootstrapped: Callable[..., Coroutine[Any, Any, None]]
+    ensure_kraken_synced: Callable[..., Coroutine[Any, Any, None]]
 
 
 def build_helpers(ctx: ToolContext) -> _Helpers:
@@ -183,11 +186,37 @@ def build_helpers(ctx: ToolContext) -> _Helpers:
         ctx.meters_repo.upsert_tariff_assignments(assignment_rows)
         ctx.sync_state.touch(key, at=now, ttl_seconds=604800)
 
+    async def ensure_kraken_synced() -> None:
+        from datetime import datetime
+
+        from octopus_mcp.octopus.kraken_queries import (
+            fetch_octoplus_events,
+            fetch_saving_sessions,
+        )
+
+        if ctx.kraken is None or ctx.kraken_repo is None:
+            return  # Kraken not configured; tool will return empty
+        key = f"kraken:{ctx.creds.account_number}"
+        now = datetime.now(UTC)
+        if ctx.sync_state.is_fresh(key, now=now):
+            return
+        sessions = await fetch_saving_sessions(
+            kraken=ctx.kraken, account_number=ctx.creds.account_number
+        )
+        events = await fetch_octoplus_events(
+            kraken=ctx.kraken, account_number=ctx.creds.account_number
+        )
+        ctx.kraken_repo.upsert_saving_sessions(sessions)
+        ctx.kraken_repo.upsert_octoplus_events(events)
+        ctx.sync_state.touch(key, at=now, ttl_seconds=3600)
+
     ctx.ensure_rates = ensure_rates  # type: ignore[attr-defined]
     ctx.resolve_target_tariff_code = resolve_target_tariff_code  # type: ignore[attr-defined]
     ctx.ensure_account_bootstrapped = ensure_account_bootstrapped  # type: ignore[attr-defined]
+    ctx.ensure_kraken_synced = ensure_kraken_synced  # type: ignore[attr-defined]
     return _Helpers(
         ensure_rates=ensure_rates,
         resolve_target_tariff_code=resolve_target_tariff_code,
         ensure_account_bootstrapped=ensure_account_bootstrapped,
+        ensure_kraken_synced=ensure_kraken_synced,
     )
