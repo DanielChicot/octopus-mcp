@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+  id-token: write  # for PyPI trusted publishing
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Verify version matches tag
+        run: |
+          PKG_VERSION=$(uv run python -c "import octopus_mcp; print(octopus_mcp.__version__)")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag $TAG_VERSION does not match package version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Sync plugin manifest version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          python -c "
+          import json, pathlib
+          p = pathlib.Path('.claude-plugin/plugin.json')
+          d = json.loads(p.read_text())
+          d['version'] = '$TAG_VERSION'
+          p.write_text(json.dumps(d, indent=2) + '\n')
+          "
+
+      - name: Build distribution
+        run: uv build
+
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Bundle plugin assets
+        run: |
+          tar -czf "octopus-plugin-${GITHUB_REF_NAME}.tar.gz" \
+            .claude-plugin .mcp.json commands skills
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+            octopus-plugin-*.tar.gz
+          generate_release_notes: true

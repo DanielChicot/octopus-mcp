@@ -40,4 +40,4 @@ config.toml
 *.db-journal
 *.db-wal
 *.db-shm
-cache/
+/cache/
