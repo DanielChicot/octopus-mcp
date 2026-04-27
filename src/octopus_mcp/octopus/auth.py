@@ -1,4 +1,7 @@
-"""Credential resolution: env > .env > keyring > config.toml > error."""
+"""Credential resolution: env > .env > keyring > error.
+
+Note: config.toml support is deferred to v0.2 (see plan known limitations).
+"""
 
 from __future__ import annotations
 
@@ -34,6 +37,14 @@ def _keyring_get(profile: str, key: str) -> str | None:
 
 @dataclass(frozen=True)
 class OctopusCredentials:
+    """Resolved Octopus credentials.
+
+    The custom __repr__ redacts the secret fields. WARNING: this redaction
+    does NOT extend to dataclasses.asdict() or dataclasses.astuple(), which
+    walk fields directly and produce plaintext. Never pass an instance of
+    this class to those helpers or to a generic serialiser.
+    """
+
     api_key: str
     account_number: str
     profile: str = "default"
@@ -73,9 +84,13 @@ def resolve_credentials(profile: str | None = None) -> OctopusCredentials:
             f"Missing required credentials: {', '.join(missing)}. " "Run: octopus-mcp configure"
         )
 
+    # After the missing guard, both are non-None. Assert to narrow for mypy
+    # without the type: ignore lie.
+    assert api_key is not None
+    assert account_number is not None
     return OctopusCredentials(
-        api_key=api_key,  # type: ignore[arg-type]
-        account_number=account_number,  # type: ignore[arg-type]
+        api_key=api_key,
+        account_number=account_number,
         profile=resolved_profile,
         email=email,
         password=password,
