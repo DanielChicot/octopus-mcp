@@ -27,12 +27,21 @@ def _ensure_dotenv_loaded() -> None:
 
 
 def _keyring_get(profile: str, key: str) -> str | None:
-    """Indirection so tests can patch."""
+    """Indirection so tests can patch.
+
+    Returns None on any keyring-side failure (no backend, locked keychain,
+    DBus unavailable, etc.) so callers fall through to the next layer in
+    the resolution chain rather than crashing.
+    """
     try:
         import keyring
+        from keyring.errors import KeyringError
     except ImportError:
         return None
-    return keyring.get_password(f"{_KEYRING_SERVICE}:{profile}", key)
+    try:
+        return keyring.get_password(f"{_KEYRING_SERVICE}:{profile}", key)
+    except KeyringError:
+        return None
 
 
 @dataclass(frozen=True)
