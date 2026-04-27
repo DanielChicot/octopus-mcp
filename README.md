@@ -1,29 +1,64 @@
 # octopus-mcp
 
+[![PyPI](https://img.shields.io/pypi/v/octopus-mcp.svg)](https://pypi.org/project/octopus-mcp/)
+[![CI](https://github.com/DanielChicot/octopus-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielChicot/octopus-mcp/actions/workflows/ci.yml)
+
 > Unofficial. Not affiliated with Octopus Energy. Uses the public REST API and the community-known Kraken GraphQL endpoint; the latter is unofficial and may break without notice.
 
 A Model Context Protocol server that lets Claude analyse your Octopus Energy account: usage, costs, tariff comparisons, Saving Sessions, Octoplus rewards.
 
 Works with **Claude Code**, **Claude Desktop**, and any MCP-compatible client.
 
+## Prerequisites
+
+- **Python 3.11 or newer**
+- An **Octopus Energy** account in the UK
+- A **smart meter** sending half-hourly readings (so consumption data is available via the API)
+
 ## Install
 
-### Claude Code (recommended)
+The server is published on PyPI as [`octopus-mcp`](https://pypi.org/project/octopus-mcp/). You can install it with [`uv`](https://docs.astral.sh/uv/) (recommended) or plain `pip`.
+
+### With `uv` (recommended)
+
+If you don't have `uv` yet:
 
 ```bash
-# 1. Install the MCP server
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then install the MCP server and save credentials:
+
+```bash
 uv tool install octopus-mcp
+octopus-mcp configure   # interactive; writes to your OS keychain
+```
 
-# 2. Save your credentials in your OS keychain
+### With `pip`
+
+```bash
+pip install octopus-mcp
 octopus-mcp configure
+```
 
-# 3. Install the plugin from this repo (in Claude Code):
+### Wire it into your MCP client
+
+#### Claude Code
+
+```bash
+# In Claude Code, install the plugin from this repo:
 /plugin install DanielChicot/octopus-mcp
 ```
 
-### Claude Desktop / Cursor / other MCP clients
+The plugin includes the MCP config and four slash commands (`/octopus:bill`, `/octopus:compare`, `/octopus:peaks`, `/octopus:saving-sessions`).
 
-Install the server, configure credentials, then add to your MCP client config:
+#### Claude Desktop, Cursor, and other MCP clients
+
+Add this entry to your client's MCP config:
 
 ```json
 {
@@ -36,7 +71,17 @@ Install the server, configure credentials, then add to your MCP client config:
 }
 ```
 
-For Claude Desktop, the config lives at `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS).
+(If you installed with `pip` instead of `uv`, replace `"command": "uvx", "args": ["octopus-mcp"]` with `"command": "octopus-mcp", "args": ["serve"]`.)
+
+The config file lives at:
+
+| Platform | Path |
+|---|---|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Linux | `~/.config/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+
+Restart your MCP client after editing the config.
 
 ## Credentials
 
