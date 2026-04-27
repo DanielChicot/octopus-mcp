@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import logging
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -21,6 +22,17 @@ from octopus_mcp.octopus.errors import (
     NotFoundError,
     RateLimitError,
     ServiceError,
+)
+from octopus_mcp.octopus.models import (
+    Account,
+    ConsumptionPage,
+    ConsumptionRow,
+    Product,
+    ProductPage,
+    StandingCharge,
+    StandingChargePage,
+    UnitRate,
+    UnitRatePage,
 )
 
 _BASE_URL = "https://api.octopus.energy"
@@ -106,3 +118,108 @@ class OctopusRestClient:
         if 500 <= resp.status_code < 600:
             raise _RetryableHTTPError(f"upstream {resp.status_code}")
         raise ServiceError(f"Unexpected status {resp.status_code}")
+
+    # ---- account ----
+
+    async def get_account(self, account_number: str | None = None) -> Account:
+        number = account_number or self._creds.account_number
+        data = await self._get_json(f"/v1/accounts/{number}/")
+        return Account.model_validate(data)
+
+    # ---- consumption ----
+
+    async def get_electricity_consumption(
+        self,
+        mpan: str,
+        serial: str,
+        *,
+        period_from: datetime | None = None,
+        period_to: datetime | None = None,
+    ) -> list[ConsumptionRow]:
+        return await self._consumption(
+            f"/v1/electricity-meter-points/{mpan}/meters/{serial}/consumption/",
+            period_from,
+            period_to,
+        )
+
+    async def get_gas_consumption(
+        self,
+        mprn: str,
+        serial: str,
+        *,
+        period_from: datetime | None = None,
+        period_to: datetime | None = None,
+    ) -> list[ConsumptionRow]:
+        return await self._consumption(
+            f"/v1/gas-meter-points/{mprn}/meters/{serial}/consumption/",
+            period_from,
+            period_to,
+        )
+
+    async def _consumption(
+        self,
+        path: str,
+        period_from: datetime | None,
+        period_to: datetime | None,
+    ) -> list[ConsumptionRow]:
+        params: dict[str, Any] = {"page_size": 25000, "order_by": "period"}
+        if period_from is not None:
+            params["period_from"] = period_from.isoformat()
+        if period_to is not None:
+            params["period_to"] = period_to.isoformat()
+
+        rows: list[ConsumptionRow] = []
+        next_url: str | None = path
+        next_params: dict[str, Any] | None = params
+        while next_url is not None:
+            data = await self._get_json(next_url, params=next_params)
+            page = ConsumptionPage.model_validate(data)
+            rows.extend(page.results)
+            next_url = self._strip_base(page.next)
+            next_params = None  # next URL already includes params
+        return rows
+
+    @staticmethod
+    def _strip_base(url: str | None) -> str | None:
+        if url is None:
+            return None
+        if url.startswith(_BASE_URL):
+            return url[len(_BASE_URL) :]
+        return url
+
+    # ---- products ----
+
+    async def list_products(self) -> list[Product]:
+        data = await self._get_json("/v1/products/")
+        return ProductPage.model_validate(data).results
+
+    async def get_product(self, code: str) -> dict[str, Any]:
+        return await self._get_json(f"/v1/products/{code}/")
+
+    # ---- tariff rates ----
+
+    async def get_electricity_unit_rates(
+        self, product_code: str, tariff_code: str
+    ) -> list[UnitRate]:
+        path = f"/v1/products/{product_code}/electricity-tariffs/{tariff_code}/standard-unit-rates/"
+        data = await self._get_json(path, params={"page_size": 1500})
+        return UnitRatePage.model_validate(data).results
+
+    async def get_electricity_standing_charges(
+        self, product_code: str, tariff_code: str
+    ) -> list[StandingCharge]:
+        path = f"/v1/products/{product_code}/electricity-tariffs/{tariff_code}/standing-charges/"
+        data = await self._get_json(path, params={"page_size": 1500})
+        return StandingChargePage.model_validate(data).results
+
+    async def get_gas_unit_rates(self, product_code: str, tariff_code: str) -> list[UnitRate]:
+        path = f"/v1/products/{product_code}/gas-tariffs/{tariff_code}/standard-unit-rates/"
+        data = await self._get_json(path, params={"page_size": 1500})
+        return UnitRatePage.model_validate(data).results
+
+    async def get_gas_standing_charges(
+        self, product_code: str, tariff_code: str
+    ) -> list[StandingCharge]:
+        path = f"/v1/products/{product_code}/gas-tariffs/{tariff_code}/standing-charges/"
+        data = await self._get_json(path, params={"page_size": 1500})
+        return StandingChargePage.model_validate(data).results
