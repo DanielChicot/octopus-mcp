@@ -41,5 +41,3 @@ config.toml
 *.db-wal
 *.db-shm
 /cache/
-!/src/octopus_mcp/cache/
-!/tests/cache/

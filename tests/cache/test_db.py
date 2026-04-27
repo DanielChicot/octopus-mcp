@@ -39,3 +39,9 @@ def test_wal_mode_enabled(tmp_path: Path) -> None:
     conn = open_db(str(db_path))
     mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
     assert mode.lower() == "wal"
+
+
+def test_foreign_keys_pragma_enabled() -> None:
+    conn = open_db(":memory:")
+    fk = conn.execute("PRAGMA foreign_keys").fetchone()[0]
+    assert fk == 1
