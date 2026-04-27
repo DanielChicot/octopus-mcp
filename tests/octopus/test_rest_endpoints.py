@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -9,14 +10,14 @@ from octopus_mcp.octopus.rest import OctopusRestClient
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+SyncHandler = Callable[[httpx.Request], httpx.Response]
+
 
 def _resp(name: str) -> Any:
     return json.loads((FIXTURES / name).read_text())
 
 
-def _client(handler: httpx.MockTransport | None = None) -> OctopusRestClient:
-    if handler is None:
-        raise ValueError("handler required")
+def _client(handler: SyncHandler) -> OctopusRestClient:
     transport = httpx.MockTransport(handler)
     http = httpx.AsyncClient(transport=transport, base_url="https://api.octopus.energy")
     return OctopusRestClient(
@@ -129,3 +130,30 @@ async def test_get_unit_rates() -> None:
         )
     assert len(rates) == 2
     assert rates[0].value_inc_vat == 26.25
+
+
+def test_strip_base_returns_relative_path_for_internal_url() -> None:
+    from octopus_mcp.octopus.rest import OctopusRestClient
+
+    out = OctopusRestClient._strip_base("https://api.octopus.energy/v1/x")
+    assert out == "/v1/x"
+
+
+def test_strip_base_passes_through_external_url() -> None:
+    from octopus_mcp.octopus.rest import OctopusRestClient
+
+    out = OctopusRestClient._strip_base("https://example.com/foo")
+    assert out == "https://example.com/foo"
+
+
+async def test_get_gas_consumption_uses_gas_meter_points_path() -> None:
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        return httpx.Response(200, json={"count": 0, "next": None, "previous": None, "results": []})
+
+    async with _client(handler) as c:
+        rows = await c.get_gas_consumption(mprn="9876543210", serial="GAS001")
+    assert captured["path"] == "/v1/gas-meter-points/9876543210/meters/GAS001/consumption/"
+    assert rows == []

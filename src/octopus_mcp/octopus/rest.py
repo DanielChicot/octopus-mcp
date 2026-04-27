@@ -194,6 +194,13 @@ class OctopusRestClient:
         return ProductPage.model_validate(data).results
 
     async def get_product(self, code: str) -> dict[str, Any]:
+        """Fetch full product detail.
+
+        Returns the raw API response as a dict because the product-detail payload
+        is large and varied (per-region tariff codes, sample quotes, etc.) and
+        a typed model is deferred to v0.2. Callers should treat fields as
+        optional and handle missing keys.
+        """
         return await self._get_json(f"/v1/products/{code}/")
 
     # ---- tariff rates ----
@@ -203,23 +210,51 @@ class OctopusRestClient:
     ) -> list[UnitRate]:
         path = f"/v1/products/{product_code}/electricity-tariffs/{tariff_code}/standard-unit-rates/"
         data = await self._get_json(path, params={"page_size": 1500})
-        return UnitRatePage.model_validate(data).results
+        page = UnitRatePage.model_validate(data)
+        if page.next is not None:
+            _log.warning(
+                "tariff rates page truncated at 1500 rows for %s/%s; pagination not yet implemented (v0.2)",
+                product_code,
+                tariff_code,
+            )
+        return page.results
 
     async def get_electricity_standing_charges(
         self, product_code: str, tariff_code: str
     ) -> list[StandingCharge]:
         path = f"/v1/products/{product_code}/electricity-tariffs/{tariff_code}/standing-charges/"
         data = await self._get_json(path, params={"page_size": 1500})
-        return StandingChargePage.model_validate(data).results
+        page = StandingChargePage.model_validate(data)
+        if page.next is not None:
+            _log.warning(
+                "tariff rates page truncated at 1500 rows for %s/%s; pagination not yet implemented (v0.2)",
+                product_code,
+                tariff_code,
+            )
+        return page.results
 
     async def get_gas_unit_rates(self, product_code: str, tariff_code: str) -> list[UnitRate]:
         path = f"/v1/products/{product_code}/gas-tariffs/{tariff_code}/standard-unit-rates/"
         data = await self._get_json(path, params={"page_size": 1500})
-        return UnitRatePage.model_validate(data).results
+        page = UnitRatePage.model_validate(data)
+        if page.next is not None:
+            _log.warning(
+                "tariff rates page truncated at 1500 rows for %s/%s; pagination not yet implemented (v0.2)",
+                product_code,
+                tariff_code,
+            )
+        return page.results
 
     async def get_gas_standing_charges(
         self, product_code: str, tariff_code: str
     ) -> list[StandingCharge]:
         path = f"/v1/products/{product_code}/gas-tariffs/{tariff_code}/standing-charges/"
         data = await self._get_json(path, params={"page_size": 1500})
-        return StandingChargePage.model_validate(data).results
+        page = StandingChargePage.model_validate(data)
+        if page.next is not None:
+            _log.warning(
+                "tariff rates page truncated at 1500 rows for %s/%s; pagination not yet implemented (v0.2)",
+                product_code,
+                tariff_code,
+            )
+        return page.results
