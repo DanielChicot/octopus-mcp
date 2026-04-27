@@ -2,6 +2,8 @@
   "name": "octopus",
   "version": "0.1.0",
   "description": "Analyse your Octopus Energy account with Claude.",
-  "author": "Daniel Chicot",
+  "author": {
+    "name": "Daniel Chicot"
+  },
   "homepage": "https://github.com/DanielChicot/octopus-mcp"
 }
