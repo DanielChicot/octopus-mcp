@@ -53,7 +53,7 @@ def test_parses_unit_rate_page() -> None:
     assert rate.valid_to == datetime(2026, 4, 1, tzinfo=UTC)
 
 
-def test_models_reject_unknown_extra_fields_loosely() -> None:
+def test_models_ignore_unknown_extra_fields() -> None:
     extra: dict[str, Any] = {
         "count": 0,
         "next": None,
@@ -63,3 +63,4 @@ def test_models_reject_unknown_extra_fields_loosely() -> None:
     }
     page = ConsumptionPage.model_validate(extra)
     assert page.count == 0
+    assert not hasattr(page, "extra_field")
