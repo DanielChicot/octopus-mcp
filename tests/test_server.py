@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
+
 from octopus_mcp.server import _build_app
 
 

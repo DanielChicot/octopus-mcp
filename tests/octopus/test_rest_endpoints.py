@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
 from octopus_mcp.octopus.auth import OctopusCredentials
 from octopus_mcp.octopus.rest import OctopusRestClient
 

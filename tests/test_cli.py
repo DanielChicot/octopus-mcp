@@ -1,6 +1,7 @@
 import sys
 
 import pytest
+
 from octopus_mcp import __version__
 from octopus_mcp.cli import build_parser, main
 

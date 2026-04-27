@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
+
 from octopus_mcp.cache.consumption import (
     ConsumptionRepo,
     ConsumptionRowIn,

@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+
 from octopus_mcp.octopus.auth import OctopusCredentials, resolve_credentials
 from octopus_mcp.octopus.errors import ConfigError
 

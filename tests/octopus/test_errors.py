@@ -1,4 +1,5 @@
 import pytest
+
 from octopus_mcp.octopus.errors import (
     AuthenticationError,
     AuthorizationError,

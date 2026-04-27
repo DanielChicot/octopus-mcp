@@ -7,13 +7,13 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from zoneinfo import ZoneInfo
 
 from octopus_mcp.analysis.billing import ConsumptionPoint
 
 
-class GroupBy(str, Enum):
+class GroupBy(StrEnum):
     HOUR = "hour"
     DAY = "day"
     WEEK = "week"

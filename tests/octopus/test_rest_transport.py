@@ -2,8 +2,10 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
-import octopus_mcp.octopus.rest as rest_module
 import pytest
+from tenacity import wait_fixed
+
+import octopus_mcp.octopus.rest as rest_module
 from octopus_mcp.octopus.auth import OctopusCredentials
 from octopus_mcp.octopus.errors import (
     AuthenticationError,
@@ -13,7 +15,6 @@ from octopus_mcp.octopus.errors import (
     ServiceError,
 )
 from octopus_mcp.octopus.rest import OctopusRestClient
-from tenacity import wait_fixed
 
 
 def _creds() -> OctopusCredentials:

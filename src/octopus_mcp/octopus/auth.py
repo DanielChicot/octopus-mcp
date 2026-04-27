@@ -32,7 +32,7 @@ def _keyring_get(profile: str, key: str) -> str | None:
         import keyring
     except ImportError:
         return None
-    return keyring.get_password(f"{_KEYRING_SERVICE}:{profile}", key)  # type: ignore[no-any-return]
+    return keyring.get_password(f"{_KEYRING_SERVICE}:{profile}", key)
 
 
 @dataclass(frozen=True)
@@ -81,7 +81,7 @@ def resolve_credentials(profile: str | None = None) -> OctopusCredentials:
     ]
     if missing:
         raise ConfigError(
-            f"Missing required credentials: {', '.join(missing)}. " "Run: octopus-mcp configure"
+            f"Missing required credentials: {', '.join(missing)}. Run: octopus-mcp configure"
         )
 
     # After the missing guard, both are non-None. Assert to narrow for mypy
