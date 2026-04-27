@@ -1,0 +1,14 @@
+{
+  "name": "octopus-mcp",
+  "owner": {
+    "name": "Daniel Chicot"
+  },
+  "plugins": [
+    {
+      "name": "octopus",
+      "source": ".",
+      "description": "Analyse your Octopus Energy account with Claude.",
+      "homepage": "https://github.com/DanielChicot/octopus-mcp"
+    }
+  ]
+}

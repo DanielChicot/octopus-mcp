@@ -49,12 +49,14 @@ octopus-mcp configure
 
 #### Claude Code
 
-```bash
-# In Claude Code, install the plugin from this repo:
-/plugin install DanielChicot/octopus-mcp
+In Claude Code, register this repo as a plugin marketplace and install the `octopus` plugin from it:
+
+```
+/plugin marketplace add DanielChicot/octopus-mcp
+/plugin install octopus@octopus-mcp
 ```
 
-The plugin includes the MCP config and four slash commands (`/octopus:bill`, `/octopus:compare`, `/octopus:peaks`, `/octopus:saving-sessions`).
+The plugin auto-registers the MCP server (no manual config-file edits needed) and adds four slash commands (`/octopus:bill`, `/octopus:compare`, `/octopus:peaks`, `/octopus:saving-sessions`) plus an analysis skill that Claude triggers automatically on energy-related questions.
 
 #### Claude Desktop, Cursor, and other MCP clients
 
