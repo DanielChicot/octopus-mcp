@@ -18,6 +18,7 @@ async def peak_hours(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     now = now or datetime.now(UTC)
+    await ctx.ensure_account_bootstrapped()
     period_from, period_to = resolve_period(period, now=now)
 
     out_fuels: dict[str, list[dict[str, Any]]] = {}

@@ -64,7 +64,11 @@ async def test_compare_tariff_returns_delta_and_caveats() -> None:
     async def _ensure_rates(**_: object) -> None:
         return None
 
+    async def _bootstrap() -> None:
+        return None
+
     ctx.ensure_rates = _ensure_rates
+    ctx.ensure_account_bootstrapped = _bootstrap
 
     async def _resolve_target(product_code: str, fuel: str) -> str:
         return "E-1R-TGT"

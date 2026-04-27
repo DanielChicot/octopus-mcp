@@ -8,6 +8,7 @@ from typing import Any
 
 async def current_tariff(*, ctx: Any, now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(UTC)
+    await ctx.ensure_account_bootstrapped()
     out: list[dict[str, Any]] = []
 
     for fuel in ("electricity", "gas"):

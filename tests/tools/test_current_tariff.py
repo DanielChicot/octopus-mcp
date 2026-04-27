@@ -42,7 +42,11 @@ async def test_current_tariff_returns_active_assignment_and_latest_rate() -> Non
     async def _ensure_rates(**_: object) -> None:
         return None
 
+    async def _bootstrap() -> None:
+        return None
+
     ctx.ensure_rates = _ensure_rates
+    ctx.ensure_account_bootstrapped = _bootstrap
 
     out = await current_tariff(ctx=ctx, now=datetime(2026, 4, 25, tzinfo=UTC))
     elec = next(f for f in out["fuels"] if f["fuel"] == "electricity")

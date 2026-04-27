@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
@@ -16,6 +17,20 @@ from octopus_mcp.cache.sync import ConsumptionSyncer
 from octopus_mcp.cache.sync_state import SyncStateRepo
 from octopus_mcp.octopus.auth import OctopusCredentials
 from octopus_mcp.octopus.rest import OctopusRestClient
+
+_TARIFF_RE = re.compile(r"^[EG]-(?:1R|2R)-(.+)-[A-Z]$")
+
+
+def _product_from_tariff(tariff_code: str) -> str:
+    """Derive product code from a tariff code.
+
+    E.g. ``E-1R-VAR-22-11-01-A`` → ``VAR-22-11-01``.
+    Falls back to returning the tariff code itself when the format is unrecognised.
+    """
+    m = _TARIFF_RE.match(tariff_code)
+    if m:
+        return m.group(1)
+    return tariff_code
 
 
 @dataclass
@@ -35,6 +50,7 @@ class ToolContext:
 class _Helpers:
     ensure_rates: Callable[..., Coroutine[Any, Any, None]]
     resolve_target_tariff_code: Callable[..., Coroutine[Any, Any, str]]
+    ensure_account_bootstrapped: Callable[..., Coroutine[Any, Any, None]]
 
 
 def build_helpers(ctx: ToolContext) -> _Helpers:
@@ -108,8 +124,70 @@ def build_helpers(ctx: ToolContext) -> _Helpers:
             f"No tariff code found in product {product_code}", resource=product_code
         )
 
+    async def ensure_account_bootstrapped() -> None:
+        from octopus_mcp.cache.meters import MeterRow, TariffAssignmentRow
+
+        account_number = ctx.creds.account_number
+        now = datetime.now(UTC)
+        key = f"account:{account_number}"
+        if ctx.sync_state.is_fresh(key, now=now):
+            return
+        account = await ctx.rest.get_account()
+        meter_rows: list[MeterRow] = []
+        assignment_rows: list[TariffAssignmentRow] = []
+        for prop in account.properties:
+            for emp in prop.electricity_meter_points:
+                for meter in emp.meters:
+                    meter_rows.append(
+                        MeterRow(
+                            account_number=account_number,
+                            fuel="electricity",
+                            mpan_or_mprn=emp.mpan,
+                            serial_number=meter.serial_number,
+                            is_export=emp.is_export,
+                        )
+                    )
+                for agreement in emp.agreements:
+                    assignment_rows.append(
+                        TariffAssignmentRow(
+                            account_number=account_number,
+                            fuel="electricity",
+                            product_code=_product_from_tariff(agreement.tariff_code),
+                            tariff_code=agreement.tariff_code,
+                            valid_from=agreement.valid_from,
+                            valid_to=agreement.valid_to,
+                        )
+                    )
+            for gmp in prop.gas_meter_points:
+                for meter in gmp.meters:
+                    meter_rows.append(
+                        MeterRow(
+                            account_number=account_number,
+                            fuel="gas",
+                            mpan_or_mprn=gmp.mprn,
+                            serial_number=meter.serial_number,
+                        )
+                    )
+                for agreement in gmp.agreements:
+                    assignment_rows.append(
+                        TariffAssignmentRow(
+                            account_number=account_number,
+                            fuel="gas",
+                            product_code=_product_from_tariff(agreement.tariff_code),
+                            tariff_code=agreement.tariff_code,
+                            valid_from=agreement.valid_from,
+                            valid_to=agreement.valid_to,
+                        )
+                    )
+        ctx.meters_repo.upsert_meters(meter_rows)
+        ctx.meters_repo.upsert_tariff_assignments(assignment_rows)
+        ctx.sync_state.touch(key, at=now, ttl_seconds=604800)
+
     ctx.ensure_rates = ensure_rates  # type: ignore[attr-defined]
     ctx.resolve_target_tariff_code = resolve_target_tariff_code  # type: ignore[attr-defined]
+    ctx.ensure_account_bootstrapped = ensure_account_bootstrapped  # type: ignore[attr-defined]
     return _Helpers(
-        ensure_rates=ensure_rates, resolve_target_tariff_code=resolve_target_tariff_code
+        ensure_rates=ensure_rates,
+        resolve_target_tariff_code=resolve_target_tariff_code,
+        ensure_account_bootstrapped=ensure_account_bootstrapped,
     )

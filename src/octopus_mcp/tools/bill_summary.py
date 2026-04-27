@@ -21,6 +21,7 @@ async def bill_summary(
     *, period: PeriodSpec, ctx: Any, now: datetime | None = None
 ) -> dict[str, Any]:
     now = now or datetime.now(UTC)
+    await ctx.ensure_account_bootstrapped()
     period_from, period_to = resolve_period(period, now=now)
 
     fuels_unavailable: list[str] = []

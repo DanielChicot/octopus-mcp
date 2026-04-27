@@ -28,6 +28,12 @@ async def test_peak_hours_returns_top_n_per_fuel() -> None:
             _R("2026-04-25T19:00:00Z", 2.7),
         ]
     )
+
+    async def _bootstrap() -> None:
+        return None
+
+    ctx.ensure_account_bootstrapped = _bootstrap
+
     out = await peak_hours(
         period=PeriodSpec(kind="last_7_days"),
         top_n=2,

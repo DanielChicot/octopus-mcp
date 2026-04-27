@@ -57,7 +57,11 @@ async def test_bill_summary_basic_electricity_only() -> None:
     async def _ensure_rates(**_: object) -> None:
         return None
 
+    async def _bootstrap() -> None:
+        return None
+
     ctx.ensure_rates = _ensure_rates
+    ctx.ensure_account_bootstrapped = _bootstrap
 
     out = await bill_summary(
         period=PeriodSpec(kind="last_month"), ctx=ctx, now=datetime(2026, 4, 1, tzinfo=UTC)
@@ -92,7 +96,11 @@ async def test_bill_summary_no_gas_meter_lists_unavailable() -> None:
     async def _ensure_rates(**_: object) -> None:
         return None
 
+    async def _bootstrap() -> None:
+        return None
+
     ctx.ensure_rates = _ensure_rates
+    ctx.ensure_account_bootstrapped = _bootstrap
 
     out = await bill_summary(
         period=PeriodSpec(kind="last_month"), ctx=ctx, now=datetime(2026, 4, 1, tzinfo=UTC)

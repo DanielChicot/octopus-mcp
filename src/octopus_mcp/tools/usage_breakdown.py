@@ -20,6 +20,7 @@ async def usage_breakdown(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     now = now or datetime.now(UTC)
+    await ctx.ensure_account_bootstrapped()
     period_from, period_to = resolve_period(period, now=now)
     gb = GroupBy(group_by)
 

@@ -40,6 +40,7 @@ async def compare_tariff(
 ) -> dict[str, Any]:
     _intelligent_octopus_guard(target_product_code)
     now = now or datetime.now(UTC)
+    await ctx.ensure_account_bootstrapped()
     period_from, period_to = resolve_period(period, now=now)
 
     fuels: list[FuelInputs] = []

@@ -29,6 +29,11 @@ async def test_usage_breakdown_groups_by_day() -> None:
         ]
     )
 
+    async def _bootstrap() -> None:
+        return None
+
+    ctx.ensure_account_bootstrapped = _bootstrap
+
     out = await usage_breakdown(
         period=PeriodSpec(kind="last_7_days"),
         group_by="day",
