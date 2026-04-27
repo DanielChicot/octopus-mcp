@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "octopus",
-      "source": ".",
+      "source": "./plugins/octopus",
       "description": "Analyse your Octopus Energy account with Claude.",
       "homepage": "https://github.com/DanielChicot/octopus-mcp"
     }
