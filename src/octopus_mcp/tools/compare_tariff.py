@@ -6,19 +6,13 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from octopus_mcp.analysis.billing import ConsumptionPoint
-from octopus_mcp.analysis.rate_lookup import RateStream, RateWindow
+from octopus_mcp.analysis.rate_lookup import RateStream
 from octopus_mcp.analysis.tariff_comparison import FuelInputs, compare_tariffs
 from octopus_mcp.octopus.errors import NotFoundError
+from octopus_mcp.tools.meter_select import consumption_for
 from octopus_mcp.tools.period import PeriodSpec, resolve_period
 
 FuelChoice = Literal["electricity", "gas", "both"]
-
-
-def _windows(rows: Any) -> list[RateWindow]:
-    return [
-        RateWindow(valid_from=r.valid_from, valid_to=r.valid_to, value_inc_vat=r.value_inc_vat)
-        for r in rows
-    ]
 
 
 def _intelligent_octopus_guard(target_product_code: str) -> None:
@@ -47,10 +41,11 @@ async def compare_tariff(
     fuels_to_check: tuple[str, ...] = ("electricity", "gas") if fuel == "both" else (fuel,)
 
     for f in fuels_to_check:
-        meters = ctx.meters_repo.list_meters_for_account(ctx.creds.account_number, fuel=f)
-        if not meters:
+        # Import only. Swapping the import tariff does not change export payments, so the
+        # export meter is out of this comparison by design (see the caveat added below).
+        # Local checks first, so no consumption is fetched for a fuel we cannot compare.
+        if not ctx.meters_repo.list_meters_for_account(ctx.creds.account_number, fuel=f):
             continue
-        meter = meters[0]
         current = ctx.meters_repo.current_tariff_assignment(
             account_number=ctx.creds.account_number, fuel=f, at=period_from
         )
@@ -62,15 +57,11 @@ async def compare_tariff(
             product_code=current.product_code, tariff_code=current.tariff_code, fuel=f
         )
         await ctx.ensure_rates(product_code=target_product_code, tariff_code=target_tariff, fuel=f)
-
-        rows = await ctx.consumption_syncer.ensure(
-            fuel=f,
-            mpan_or_mprn=meter.mpan_or_mprn,
-            serial_number=meter.serial_number,
-            period_from=period_from,
-            period_to=period_to,
-            now=now,
+        rows = await consumption_for(
+            ctx, fuel=f, period_from=period_from, period_to=period_to, now=now
         )
+        assert rows is not None  # a meter exists, checked above
+
         fuels.append(
             FuelInputs(
                 fuel=f,  # type: ignore[arg-type]
@@ -80,23 +71,33 @@ async def compare_tariff(
                     )
                     for r in rows
                 ],
-                current_unit_rates=RateStream(
-                    _windows(ctx.rates_repo.get_unit_rates(current.tariff_code))
+                current_unit_rates=RateStream.from_rows(
+                    ctx.rates_repo.get_unit_rates(current.tariff_code)
                 ),
-                current_standing=RateStream(
-                    _windows(ctx.rates_repo.get_standing_charges(current.tariff_code))
+                current_standing=RateStream.from_rows(
+                    ctx.rates_repo.get_standing_charges(current.tariff_code)
                 ),
-                target_unit_rates=RateStream(
-                    _windows(ctx.rates_repo.get_unit_rates(target_tariff))
+                target_unit_rates=RateStream.from_rows(
+                    ctx.rates_repo.get_unit_rates(target_tariff)
                 ),
-                target_standing=RateStream(
-                    _windows(ctx.rates_repo.get_standing_charges(target_tariff))
+                target_standing=RateStream.from_rows(
+                    ctx.rates_repo.get_standing_charges(target_tariff)
                 ),
             )
         )
 
     if not fuels:
         raise NotFoundError("No fuels available to compare", resource="account")
+
+    caveats_extra: list[str] = []
+    if "electricity" in fuels_to_check and ctx.meters_repo.list_meters_for_account(
+        ctx.creds.account_number, fuel="electricity", is_export=True
+    ):
+        caveats_extra.append(
+            "This account also exports electricity. Export is excluded: it is paid on its own "
+            "export tariff, which an import tariff swap does not change - but check whether "
+            "your export tariff requires a particular import tariff."
+        )
 
     result = compare_tariffs(
         target_product_code=target_product_code,
@@ -133,5 +134,5 @@ async def compare_tariff(
             }
             for d in result.breakdown_by_day
         ],
-        "caveats": result.caveats,
+        "caveats": [*result.caveats, *caveats_extra],
     }

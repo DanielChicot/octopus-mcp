@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
-from typing import Literal
+from datetime import date, datetime, timedelta
+from typing import Any, Literal
+
+from octopus_mcp.uktime import LONDON, uk_date, uk_midnight
+
+# Octopus bills UK days, and usage_breakdown buckets by UK-local day. Periods were built on
+# UTC midnights, so during BST every boundary was an hour out - on a time-of-use tariff the
+# overnight cheap-rate charging straddles exactly that hour.
 
 PeriodKind = Literal["last_month", "last_7_days", "last_quarter", "ytd", "explicit"]
 
@@ -25,29 +31,35 @@ class PeriodSpec:
                 raise ValueError("period exceeds maximum of 2 years")
 
 
-def _start_of(d: date) -> datetime:
-    return datetime(d.year, d.month, d.day, tzinfo=UTC)
+_start_of = uk_midnight
+
+
+def period_label(period_from: datetime, period_to: datetime) -> dict[str, Any]:
+    """The {from, to} dates shown to the user, as UK dates (``to`` is exclusive)."""
+    return {"from": uk_date(period_from).isoformat(), "to": uk_date(period_to).isoformat()}
 
 
 def resolve_period(spec: PeriodSpec, *, now: datetime) -> tuple[datetime, datetime]:
+    """Resolve to a [from, to) range of UTC datetimes on UK-local midnights."""
+    now = now.astimezone(LONDON)
     if spec.kind == "last_7_days":
-        end = _start_of(now.date())
-        return end - timedelta(days=7), end
+        # Seven UK DAYS, not 7 x 24 h: across a clock change those differ by an hour.
+        return _start_of(now.date() - timedelta(days=7)), _start_of(now.date())
     if spec.kind == "last_month":
         first_this = now.date().replace(day=1)
         last_first = (first_this - timedelta(days=1)).replace(day=1)
         return _start_of(last_first), _start_of(first_this)
     if spec.kind == "last_quarter":
-        end = _start_of(now.date().replace(day=1))
-        m = end.month - 3
-        y = end.year
+        first_this = now.date().replace(day=1)
+        end = _start_of(first_this)
+        m = first_this.month - 3
+        y = first_this.year
         while m <= 0:
             m += 12
             y -= 1
-        start = datetime(y, m, 1, tzinfo=UTC)
-        return start, end
+        return _start_of(date(y, m, 1)), end
     if spec.kind == "ytd":
-        return datetime(now.year, 1, 1, tzinfo=UTC), _start_of(now.date())
+        return _start_of(date(now.year, 1, 1)), _start_of(now.date())
     if spec.kind == "explicit":
         assert spec.from_date and spec.to_date
         if _start_of(spec.to_date) > now:
